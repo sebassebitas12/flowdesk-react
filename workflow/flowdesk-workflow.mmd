@@ -1,0 +1,26 @@
+flowchart TD
+    A([Inicio]) --> B[Usuario completa formulario]
+    B --> C{{"Cambio en formulario"}}
+    C --> D[useEffect programa auto-guardado<br/>setTimeout 650 ms]
+    D --> E[(localStorage<br/>guarda borrador)]
+    E --> F[Usuario presiona Enviar]
+    F --> G[Estado: en ejecución]
+    G --> H[POST al Webhook de n8n]
+    H --> I[Validar nombre, email y descripción]
+    I --> J{"¿Datos correctos?"}
+    J -->|Sí| K[Clasificar prioridad y generar ID]
+    K --> L[Estado: éxito]
+    L --> M[(Guardar historial local)]
+    J -->|No| N[Preparar respuesta de error]
+    N --> O[Estado: error y mostrar mensaje]
+    H -.->|n8n desconectado| P[Modo demostración local]
+    P --> L
+    D -.-> Q[Cleanup: clearTimeout]
+    classDef start fill:#684cff,color:#fff,stroke:#684cff
+    classDef success fill:#dff8ee,color:#126d55,stroke:#15b887
+    classDef error fill:#ffe7eb,color:#a13b4b,stroke:#e45a6e
+    classDef process fill:#f0edff,color:#4634a5,stroke:#8d7aff
+    class A start
+    class L,M success
+    class N,O error
+    class D,E,F,G,H,I,K,P,Q process

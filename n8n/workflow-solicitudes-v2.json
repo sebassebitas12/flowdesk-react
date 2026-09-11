@@ -1,0 +1,189 @@
+{
+  "name": "FlowDesk - Automatización de solicitudes V2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "flowdesk-solicitud",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fd-webhook-001",
+      "name": "Webhook - Nueva solicitud",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        0
+      ],
+      "webhookId": "flowdesk-solicitud"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = ($json && typeof $json.body === 'object' && $json.body !== null) ? $json.body : ($json ?? {});\nconst clean = (value, max = 500) => String(value ?? '').trim().slice(0, max);\nconst name = clean(input.name, 120);\nconst email = clean(input.email, 160).toLowerCase();\nconst category = clean(input.category, 80) || 'Soporte técnico';\nconst description = clean(input.description, 500);\nconst allowedPriorities = ['Urgente', 'Alta', 'Media', 'Baja'];\nconst priority = allowedPriorities.includes(clean(input.priority, 20)) ? clean(input.priority, 20) : 'Media';\nconst missing = [];\nif (!name) missing.push('name');\nif (!email) missing.push('email');\nif (!description) missing.push('description');\nconst validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\nconst validLength = description.length <= 500;\nconst valid = missing.length === 0 && validEmail && validLength;\nconst receivedAt = new Date().toISOString();\nconst startedAtMs = Date.now();\nreturn [{ json: { name, email, category, priority, description, valid, missing, validEmail, validLength, receivedAt, startedAtMs, workflowVersion: '2.0.0', source: 'flowdesk-web' } }];",
+        "options": {}
+      },
+      "id": "fd-validate-002",
+      "name": "Validar y normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.valid }}",
+              "operation": "true"
+            }
+          ]
+        }
+      },
+      "id": "fd-if-003",
+      "name": "¿Solicitud válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const routing = {\n  Urgente: { route: 'Atención inmediata', queue: 'priority-critical', slaMinutes: 30 },\n  Alta: { route: 'Cola prioritaria', queue: 'priority-high', slaMinutes: 120 },\n  Media: { route: 'Cola general', queue: 'standard', slaMinutes: 480 },\n  Baja: { route: 'Cola general', queue: 'standard', slaMinutes: 1440 },\n};\nconst selected = routing[$json.priority] || routing.Media;\nconst requestId = `FD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;\nconst processedAt = new Date().toISOString();\nconst processingMs = Math.max(0, Date.now() - Number($json.startedAtMs || Date.now()));\nreturn [{ json: {\n  status: 'success',\n  message: 'Solicitud procesada correctamente',\n  requestId,\n  priority: $json.priority,\n  category: $json.category,\n  route: selected.route,\n  queue: selected.queue,\n  slaMinutes: selected.slaMinutes,\n  processedAt,\n  receivedAt: $json.receivedAt,\n  processingMs,\n  source: 'n8n',\n  workflowVersion: $json.workflowVersion\n} }];",
+        "options": {}
+      },
+      "id": "fd-process-004",
+      "name": "Clasificar y preparar respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "fd-success-005",
+      "name": "Responder - Éxito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const issues = [];\nif (Array.isArray($json.missing) && $json.missing.length) issues.push(`Campos obligatorios ausentes: ${$json.missing.join(', ')}`);\nif (!$json.validEmail) issues.push('El correo electrónico no tiene un formato válido');\nif (!$json.validLength) issues.push('La descripción supera el máximo de 500 caracteres');\nreturn [{ json: {\n  status: 'error',\n  message: 'La solicitud contiene datos inválidos',\n  errors: issues,\n  missing: $json.missing || [],\n  validEmail: Boolean($json.validEmail),\n  requestId: null,\n  processedAt: new Date().toISOString(),\n  receivedAt: $json.receivedAt,\n  source: 'n8n',\n  workflowVersion: $json.workflowVersion\n} }];",
+        "options": {}
+      },
+      "id": "fd-error-006",
+      "name": "Preparar respuesta de validación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "fd-invalid-007",
+      "name": "Responder - Datos inválidos",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Nueva solicitud": {
+      "main": [
+        [
+          {
+            "node": "Validar y normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar y normalizar": {
+      "main": [
+        [
+          {
+            "node": "¿Solicitud válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Solicitud válida?": {
+      "main": [
+        [
+          {
+            "node": "Clasificar y preparar respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar respuesta de validación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar y preparar respuesta": {
+      "main": [
+        [
+          {
+            "node": "Responder - Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar respuesta de validación": {
+      "main": [
+        [
+          {
+            "node": "Responder - Datos inválidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "flowdesk-v2",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -29,8 +29,8 @@ export const storageService = {
   }
 };
 
-export async function sendToN8n(payload) {
-  const url = import.meta.env.VITE_N8N_WEBHOOK_URL;
+export async function sendToN8n(payload, webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL) {
+  const url = webhookUrl;
   if (!url) throw new Error('Falta VITE_N8N_WEBHOOK_URL. Configura .env.local y reinicia Vite.');
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 15000);

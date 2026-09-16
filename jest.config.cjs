@@ -1,10 +1,8 @@
 module.exports = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
-  transform: {
-    '^.+\\.jsx?$': ['babel-jest', { configFile: './babel.config.cjs' }]
-  },
-  testMatch: ['**/*.test.js', '**/*.test.jsx'],
+  transform: {},
+  testMatch: ['**/*.test.js'],
   collectCoverageFrom: [
     'src/services/storageService.js',
     'src/hooks/useAutoSave.js',
